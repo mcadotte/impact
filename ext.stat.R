@@ -3,8 +3,8 @@
 exp.ext<-function(c.ab,inv.ab){
   if (sum(c.ab<=0)>0) print("Removing species with abundance = 0")
   c.ab<-c.ab[c.ab>0]
-  tmp<-c.ab-(inv.ab/length(c.ab))
-  return(sum(tmp<=0))
+  tmp<-c.ab-(inv.ab*(c.ab/sum(c.ab)))
+  return(sum(tmp<=1))
 }
 
 #function to randomly remove resident abundance in units of 1, rounded down to nearest whole number. c.ab is a vector of abundances from community i and inv.ab is the abundance of invasive species. Times is the number of randomizations and hist = TRUE returns a histogram along with summary statistics
@@ -22,14 +22,14 @@ ext.rnd<-function(c.ab,inv.ab,times = 999){
     tmp<-data.frame(c.ab,rank)
     
     for (i in 1:inv.ab){
-      pos<-sample(nrow(tmp),1)
+      pos<-sample(nrow(tmp),1,prob=(c.ab/sum(c.ab)))
       tmp[pos,1]<-tmp[pos,1]-1
     }
     
     tmp$c.ab<-floor(tmp$c.ab)
-    num.ext[j]<-sum(tmp$c.ab<=0)
-    if (sum(tmp$c.ab<=0)>0)	ave.rank[j]<-mean(tmp$rank[tmp$c.ab<=0])
-    if (sum(tmp$c.ab<=0)<=0) ave.rank[j]<-length(c.ab)+1
+    num.ext[j]<-sum(tmp$c.ab<=1)
+    if (sum(tmp$c.ab<=1)>0)	ave.rank[j]<-mean(tmp$rank[tmp$c.ab<=1])
+    if (sum(tmp$c.ab<=1)<=0) ave.rank[j]<-length(c.ab)+1
   }
   
   out<-data.frame(num.ext,ave.rank)

@@ -14,7 +14,7 @@ DSV.change<-data.frame(site.plot=rownames(one.t),
                        DSV.change=(two$VIRO-one.t$VIRO),
                        DSV.2013=one.t$VIRO,DSV.2019=two$VIRO)
 
-DSV.change<-read.csv("Rouge data/DSV_change.csv")
+#DSV.change<-read.csv("Rouge data/DSV_change.csv")
 
 #wrap in a loop
 #need function to pull out number of extinctions and their ranks from before/after data
@@ -36,7 +36,8 @@ names(out13)<-rownames(one.t)
 
 #show that VIRO(DSV) was negatively correlated with richness in 2013
 rich2013<-sapply(out13,nrow) 
-DSV2013<-one.t$VIRO 
+DSV2013<-one.t$VIRO
+DSV.change$Rich.2013<-rich2013
 
 #get list of communities for 2019 as well.
 out19<-list()
@@ -51,6 +52,7 @@ for (i in 1:nrow(two)){
 
 names(out19)<-rownames(two)
 rich2019<-sapply(out19,nrow) 
+DSV.change$Rich.2019<-rich2019
 
 #plots richness of 2013 vs 2019; and DSV richness
 quartz()
@@ -105,6 +107,7 @@ DSV.change$obs.rank.ext<-ranks
 
 mod.out<-list()
 
+#calculating only for plots with increasing DSV
 for (i in 1:length(out13)){
   tmp<-out13[[i]]
   if (DSV.change$DSV.change[i] <= 0) mod.out[[i]]<-NA
@@ -131,7 +134,41 @@ rownames(final)<-names(bar)
 
 ext.final<-read.csv("Rouge data/final_output.csv")
 #DSV.change$Scenario<-ext.final$scenario[match(DSV.change$site.plot,ext.final$Plots)]
+names(ext.final)[1]<-"Plots"
+
+###just analyze plots with DSV increase and with > 4 species in 2013.
+#add ext.z to DSV_change
+DSV.change$ext.z<-ext.final$ext.z.value[match(DSV.change$site.plot,ext.final$Plots)]
+
+scens.ext<-NULL
+scens.rank<-NULL
+
+for (i in 1:nrow(ext.final)){
+  if (ext.final$ext.z.value[i] < -1.96 ) scens.ext[i]<-"S.neg"
+  else if (ext.final$ext.z.value[i] > -1.96 && ext.final$ext.z.value[i] < 1.96) scens.ext[i]<-"N"
+  else if (ext.final$ext.z.value[i] > 1.96 ) scens.ext[i]<-"S.pos"
+
+  if (is.na(ext.final$rank.z.value[i])== FALSE) {
+    if (ext.final$rank.z.value[i] < -1.96 ) scens.rank[i]<-"S.neg"
+    else if (ext.final$rank.z.value[i] > -1.96 && ext.final$rank.z.value[i] < 1.96) scens.rank[i]<-"N"
+    else if (ext.final$rank.z.value[i] > 1.96 ) scens.rank[i]<-"S.pos"
+  }
+  if (is.na(ext.final$rank.z.value[i])== TRUE) scens.rank[i]<-"N"
+}
+
+ext.final$Scenario[scens.ext=="N"&scens.rank=="S.neg"]<-3
+ext.final$Scenario[scens.ext=="S.pos"&scens.rank=="S.neg"]<-4
+ext.final$Scenario[scens.ext=="S.neg"&scens.rank=="S.neg"]<-3
+ext.final$Scenario[scens.ext=="S.neg"&scens.rank=="N"]<-1
+
+DSV.change$Scenario<-ext.final$Scenario[match(DSV.change$site.plot,ext.final$Plots)]
+
+DSV.change<-DSV.change[DSV.change$Rich.2013 > 4,]
+DSV.change<-DSV.change[DSV.change$DSV.change > 0,]
 #write.csv(DSV.change,"Rouge data/DSV_change.csv")
+
+#average ezt.Z
+mean(DSV.change$ext.z)
 
 scn<-as.factor(as.character(DSV.change$Scenario))
 scn.d<-data.frame(Scenario=c("1","2","3","4"),Counts=c(sum(scn=="1",na.rm = TRUE),sum(scn=="2",na.rm = TRUE), sum(scn=="3",na.rm = TRUE),sum(scn=="4",na.rm = TRUE)))
@@ -191,34 +228,41 @@ dp10$DSV.change<-DSV.change$DSV.change[as.numeric(rownames(dp10))]
 dp10$Rich.2013<-DSV.change$Rich.2013[as.numeric(rownames(dp10))]
 
 quartz()
-par(mfrow=c(2,3))
+par(mfrow=c(2,2))
 hist(DSV.change$DSV.change,xlab="Change in DSV cover",
      main=NULL,cex.lab=1.4)
 hist(DSV.change$Rich.change,xlab="Change in species richness",
      main=NULL,cex.lab=1.4)
-plot(DSV.change$DSV.change,DSV.change$Rich.change,cex.lab=1.4,type="n",
-     ylab="Change in species richness", xlab="Change in DSV cover")
-rect(0,-7.5,155,0,col=rgb(red=218,green=240,blue=227,maxColorValue = 255))
-points(DSV.change$DSV.change,DSV.change$Rich.change,pch=19,cex=1.3)
+#plot(DSV.change$DSV.change,DSV.change$Rich.change,cex.lab=1.4,type="n",
+  #   ylab="Change in species richness", xlab="Change in DSV cover")
+#rect(0,-7.5,155,0,col=rgb(red=218,green=240,blue=227,maxColorValue = 255))
+#points(DSV.change$DSV.change,DSV.change$Rich.change,pch=19,cex=1.3)
 
 barplot(scn.d$Counts,names.arg =scn.d$Scenario,xlab="Scenario",
         ylab="Frequency",cex.lab=1.4)
 
 plot(dp10$Rich.2013,dp10[,1],type="n",xlab="Resident richness (2013)",
-     ylab="Probability",cex.lab=1.4)
-lines(lowess(dp10$Rich.2013,dp10[,1],f=1),lwd=2,col="darkorange1")
-lines(lowess(dp10$Rich.2013,dp10[,2],f=1),lwd=2,col="darkgoldenrod2")
-lines(lowess(dp10$Rich.2013,dp10[,3],f=1),lwd=2,col="brown")
+     ylab="Probability",cex.lab=1.4,ylim =c(0,1))
+lines(lowess(dp10$Rich.2013,dp10[,1],f=1),lwd=3,col="#EA4D1C")
+lines(lowess(dp10$Rich.2013,dp10[,2],f=1),lwd=3,col="#CECE34")
+lines(lowess(dp10$Rich.2013,dp10[,3],f=1),lwd=3,col="#CB4ECE")
 
-text(2,0.99,pos=4,"Scenario 1",col="darkorange1",cex.lab=1.2)
-text(2,0.92,pos=4,"Scenario 3",col="darkgoldenrod2",cex.lab=1.2)
-text(2,0.85,pos=4,"Scenario 4",col="brown",cex.lab=1.2)
+text(5,0.99,pos=4,"Scenario 1",col="#EA4D1C",cex.lab=1.2)
+text(5,0.92,pos=4,"Scenario 3",col="#CECE34",cex.lab=1.2)
+text(5,0.85,pos=4,"Scenario 4",col="#CB4ECE",cex.lab=1.2)
 
 plot(dp10$DSV.change,dp10[,1],type="n",xlab="Change in DSV cover",
-     ylab="Probability",cex.lab=1.4)
-lines(lowess(dp10$DSV.change,dp10[,1],f=1),lwd=2,col="darkorange1")
-lines(lowess(dp10$DSV.change,dp10[,2],f=1),lwd=2,col="darkgoldenrod2")
-lines(lowess(dp10$DSV.change,dp10[,3],f=1),lwd=2,col="brown")
+     ylab="Probability",cex.lab=1.4,ylim =c(0,1))
+lines(lowess(dp10$DSV.change,dp10[,1],f=1),lwd=3,col="#EA4D1C")
+
+l.s3<-lowess(dp10$DSV.change,dp10[,2],f=1)
+l.s3$y[l.s3$y>0.99]<-0.99
+
+lines(l.s3,lwd=3,col="#CECE34")
+
+l.s4<-lowess(dp10$DSV.change,dp10[,3],f=1)
+l.s4$y[l.s4$y<0.01]<-0.01
+lines(l.s4,lwd=3,col="#CB4ECE")
 
 
 
